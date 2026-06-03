@@ -378,16 +378,16 @@
       <button class="sel-all-btn" onclick="selectAllExerciseSublists()">&#20840;&#36984;</button>
       <button class="sel-none-btn" onclick="selectNoExerciseSublists()">&#20840;&#19981;&#36984;</button>
     </div>
-    <div class="q-count-wrap">
-      <label>Exercise &#38988;&#32068;</label>
-      <div class="q-count-row" id="exercise-number-row"></div>
+    <div class="exercise-card">
+      <div class="exercise-filter-grid">
+        <div class="exercise-filter-row"><label>Exercise 1-6</label><div class="exercise-chip-row" id="exercise-number-row"></div></div>
+        <div class="exercise-filter-row"><label>&#27599;&#27425;&#21477;&#23376;&#38988;&#25976;</label><div class="exercise-chip-row" id="exercise-count-row"></div></div>
+      </div>
+      <div class="exercise-actions">
+        <button class="exercise-start-btn" onclick="startExercise(false)">START MIXED A/B/C</button>
+        <button class="exercise-secondary-btn" onclick="startExercise(true)">RETRY WRONG</button>
+      </div>
     </div>
-    <div class="q-count-wrap">
-      <label>&#27599;&#27425;&#21477;&#23376;&#38988;&#25976;</label>
-      <div class="q-count-row" id="exercise-count-row"></div>
-    </div>
-    <button class="start-btn" id="exercise-start-btn" onclick="startExercise(false)">&#38283;&#22987;&#22635;&#31354;&#32244;&#32722;</button>
-    <button class="back-to-select-btn exercise-retry-btn" onclick="startExercise(true)">RETRY WRONG</button>
   </div>
 
   <div id="exercise-section">
@@ -1338,9 +1338,9 @@ function makeExerciseSublistButton(n, active, onClick) {
   return btn;
 }
 
-function makeExerciseCountButton(text, active, onClick) {
+function makeExerciseChip(text, active, onClick) {
   const btn = document.createElement('button');
-  btn.className = 'q-count-btn' + (active ? ' selected' : '');
+  btn.className = 'exercise-chip' + (active ? ' active' : '');
   btn.textContent = text;
   btn.onclick = onClick;
   return btn;
@@ -1366,18 +1366,10 @@ function initExerciseFilters() {
   const countRow = document.getElementById('exercise-count-row');
   slRow.innerHTML = ''; numRow.innerHTML = ''; countRow.innerHTML = '';
   [1,2,3,4,5,6,7,8,9,10].forEach(n => slRow.appendChild(makeExerciseSublistButton(n, exerciseFilters.sublists.includes(n), () => toggleExerciseFilter('sublists', n))));
-  [1,2,3,4,5,6].forEach(n => numRow.appendChild(makeExerciseCountButton('EX ' + n, exerciseFilters.exercises.includes(n), () => toggleExerciseFilter('exercises', n))));
-  [10,20,30,999].forEach(n => countRow.appendChild(makeExerciseCountButton(n === 999 ? '\u5168\u90e8' : n + ' \u984c', exerciseQuestionCount === n, () => setExerciseQuestionCount(n))));
-  updateExerciseStartBtn();
+  [1,2,3,4,5,6].forEach(n => numRow.appendChild(makeExerciseChip('EX ' + n, exerciseFilters.exercises.includes(n), () => toggleExerciseFilter('exercises', n))));
+  [10,20,30,999].forEach(n => countRow.appendChild(makeExerciseChip(n === 999 ? '\u5168\u90e8' : n + ' \u984c', exerciseQuestionCount === n, () => setExerciseQuestionCount(n))));
 }
 
-function updateExerciseStartBtn() {
-  const btn = document.getElementById('exercise-start-btn');
-  if (!btn) return;
-  const ready = exerciseFilters.sublists.length > 0 && exerciseFilters.exercises.length > 0;
-  btn.disabled = !ready;
-  btn.textContent = ready ? '\u958b\u59cb\u586b\u7a7a\u7df4\u7fd2' : '\u9078\u64c7 Sublist / Exercise \u5f8c\u958b\u59cb';
-}
 
 function selectAllExerciseSublists() {
   exerciseFilters.sublists = [1,2,3,4,5,6,7,8,9,10];
@@ -1675,8 +1667,3 @@ init();
 </script>
 </body>
 </html>
-
-
-
-
-
