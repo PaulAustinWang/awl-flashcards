@@ -1438,10 +1438,51 @@ function exerciseEditDistance(a, b) {
   }
   return dp[a.length][b.length];
 }
-function exercisePromptZh(item) {
-  const zh = exerciseAnswerZh(item.answer, item.source);
-  if (!zh) return '\u672c\u984c\u7684\u95dc\u9375\u7b54\u6848\u662f ' + item.answer + '\uff0c\u8acb\u5c07\u5b83\u653e\u56de\u53e5\u5b50\u4e2d\u7406\u89e3\u5168\u53e5\u610f\u601d\u3002';
-  return '\u672c\u984c\u7684\u95dc\u9375\u7b54\u6848\u662f ' + item.answer + '\uff08' + zh + '\uff09\uff0c\u8acb\u5c07\u5b83\u653e\u56de\u53e5\u5b50\u4e2d\u7406\u89e3\u5168\u53e5\u610f\u601d\u3002';
+function exerciseTranslationCacheKey(item) {
+  return 'awlExercisePromptZh:' + item.id + ':' + exerciseWordKey(item.answer);
+}
+
+async function fetchExercisePromptZh(text) {
+  const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q=' + encodeURIComponent(text);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('translation request failed');
+  const data = await response.json();
+  return (data[0] || []).map(part => part[0]).join('').trim();
+}
+
+async function getExercisePromptZh(item) {
+  const cacheKey = exerciseTranslationCacheKey(item);
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) return cached;
+  const translated = await fetchExercisePromptZh(filledExerciseSentence(item));
+  if (translated) localStorage.setItem(cacheKey, translated);
+  return translated;
+}
+
+function renderExercisePromptTranslation(item) {
+  const textEl = document.getElementById('exercise-translation-text');
+  const enEl = document.getElementById('exercise-translation-en');
+  const translateId = item.id + ':' + item.answer;
+  textEl.dataset.translateId = translateId;
+  textEl.textContent = '\u6574\u53e5\u4e2d\u6587\u7ffb\u8b6f\u4e2d...';
+  enEl.textContent = filledExerciseSentence(item);
+  getExercisePromptZh(item).then(zh => {
+    if (textEl.dataset.translateId === translateId) textEl.textContent = zh || '\u6574\u53e5\u4e2d\u6587\u7ffb\u8b6f\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002';
+  }).catch(() => {
+    if (textEl.dataset.translateId === translateId) textEl.textContent = '\u6574\u53e5\u4e2d\u6587\u7ffb\u8b6f\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002';
+  });
+}
+
+function hydrateExerciseLiveTranslation(item, container) {
+  const textEl = container.querySelector('.exercise-live-translation');
+  if (!textEl) return;
+  const translateId = item.id + ':' + item.answer;
+  textEl.dataset.translateId = translateId;
+  getExercisePromptZh(item).then(zh => {
+    if (textEl.dataset.translateId === translateId) textEl.textContent = zh || '\u6574\u53e5\u4e2d\u6587\u7ffb\u8b6f\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002';
+  }).catch(() => {
+    if (textEl.dataset.translateId === translateId) textEl.textContent = '\u6574\u53e5\u4e2d\u6587\u7ffb\u8b6f\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002';
+  });
 }
 
 function exerciseAnswerZh(answer, source) {
@@ -1486,8 +1527,9 @@ function renderExerciseLiveWrong() {
       '<div class="exercise-live-prompt">' + plainExerciseSentence(item.prompt) + '</div>' +
       '<div class="exercise-live-answer">Answer: ' + item.answer + '</div>' +
       (zh ? '<div class="exercise-live-zh">\u4e2d\u6587\uff1a' + zh + '</div>' : '') +
-      '<div class="exercise-live-translation">' + exercisePromptZh(item) + '</div>';
+      '<div class="exercise-live-translation">\u6574\u53e5\u4e2d\u6587\u7ffb\u8b6f\u4e2d...</div>';
     list.appendChild(div);
+    hydrateExerciseLiveTranslation(item, div);
   });
 }
 
@@ -1528,8 +1570,7 @@ function loadExerciseQuestion() {
   document.getElementById('exercise-focus-word').textContent = item.answer;
   document.getElementById('exercise-answer-zh').textContent = answerZh ? '\u7b54\u6848\u4e2d\u6587\uff1a' + answerZh : '';
   document.getElementById('exercise-sentence').innerHTML = blankExerciseSentence(item.prompt);
-  document.getElementById('exercise-translation-text').textContent = exercisePromptZh(item);
-  document.getElementById('exercise-translation-en').textContent = filledExerciseSentence(item);
+  renderExercisePromptTranslation(item);
   document.getElementById('exercise-input').value = '';
   document.getElementById('exercise-input').disabled = false;
   const fb = document.getElementById('exercise-feedback');
@@ -1634,6 +1675,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
