@@ -193,7 +193,13 @@
 .exercise-question-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 28px 24px 22px; margin-bottom: 16px; position: relative; overflow: hidden; animation: slideIn .35s cubic-bezier(.4,0,.2,1); }
 .exercise-question-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
 .exercise-source { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-bottom: 13px; }
-.exercise-sentence { font-size: clamp(18px, 4.5vw, 28px); line-height: 1.42; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+.exercise-focus-word { font-family: 'Space Mono', monospace; font-size: clamp(26px, 6vw, 46px); font-weight: 700; color: var(--accent); line-height: 1.05; margin-bottom: 7px; overflow-wrap: anywhere; }
+.exercise-answer-zh { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.exercise-sentence { font-size: clamp(18px, 4.5vw, 28px); line-height: 1.42; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+.exercise-translation { background: rgba(71,200,255,.07); border: 1px solid rgba(71,200,255,.18); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+.exercise-translation-label { color: var(--accent2); font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 6px; text-transform: uppercase; }
+.exercise-translation-text { color: var(--text); font-size: 13px; line-height: 1.45; }
+.exercise-translation-en { color: var(--muted); font-family: 'Space Mono', monospace; font-size: 12px; line-height: 1.35; margin-top: 6px; overflow-wrap: anywhere; }
 .exercise-blank { display: inline-block; min-width: 120px; border-bottom: 3px solid var(--accent); transform: translateY(-4px); }
 .exercise-input-row { display: flex; gap: 8px; margin-bottom: 14px; }
 .exercise-input-row input { flex: 1; min-width: 0; background: #111; border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); padding: 13px 14px; font-family: 'Space Mono', monospace; font-size: 16px; }
@@ -218,6 +224,7 @@
 .exercise-live-prompt { color: var(--text); font-size: 12px; line-height: 1.35; margin-bottom: 4px; }
 .exercise-live-answer { color: var(--correct); font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; }
 .exercise-live-zh { color: var(--accent2); font-size: 12px; margin-top: 3px; }
+.exercise-live-translation { color: var(--text); font-size: 12px; line-height: 1.4; margin-top: 4px; }
 .exercise-footer { display: flex; gap: 10px; flex-wrap: wrap; }
 .exercise-footer button { flex: 1; min-width: 140px; }
 @media (max-width: 480px) { .exercise-actions, .exercise-options, .exercise-input-row { grid-template-columns: 1fr; } .exercise-input-row { display: grid; } }
@@ -385,8 +392,15 @@
       <div class="score-pill"><span class="dot dot-wrong"></span><span id="exercise-wrong">0</span> wrong</div>
     </div>
     <div class="exercise-question-card" id="exercise-card">
-      <div class="exercise-source" id="exercise-source">SL1 EX1A · QUESTION 01</div>
+      <div class="exercise-source" id="exercise-source">SL1 EX1A &middot; QUESTION 01</div>
+      <div class="exercise-focus-word" id="exercise-focus-word">fill exercise</div>
+      <div class="exercise-answer-zh" id="exercise-answer-zh"></div>
       <div class="exercise-sentence" id="exercise-sentence"></div>
+      <div class="exercise-translation" id="exercise-translation">
+        <div class="exercise-translation-label">&#20013;&#25991;&#38988;&#24847;</div>
+        <div class="exercise-translation-text" id="exercise-translation-text"></div>
+        <div class="exercise-translation-en" id="exercise-translation-en"></div>
+      </div>
       <div class="exercise-input-row">
         <input id="exercise-input" placeholder="Type answer here" autocomplete="off" onkeydown="exerciseInputKey(event)">
         <button class="exercise-check-btn" onclick="checkExerciseInput()">CHECK</button>
@@ -1354,6 +1368,7 @@ function shuffleExercise(arr) { return [...arr].sort(() => Math.random() - 0.5);
 function normExerciseAnswer(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
 function blankExerciseSentence(s) { return s.replace(/_{5,}/g, '<span class="exercise-blank"></span>'); }
 function plainExerciseSentence(s) { return s.replace(/_{5,}/g, '_____'); }
+function filledExerciseSentence(item) { return String(item.prompt || '').replace(/_{5,}/g, item.answer); }
 function exerciseWordKey(s) { return String(s || '').toLowerCase().replace(/[^a-z]/g, ''); }
 function exerciseWordVariants(word) {
   const key = exerciseWordKey(word);
@@ -1383,6 +1398,12 @@ function exerciseEditDistance(a, b) {
   }
   return dp[a.length][b.length];
 }
+function exercisePromptZh(item) {
+  const zh = exerciseAnswerZh(item.answer, item.source);
+  if (!zh) return '\u672c\u984c\u7684\u95dc\u9375\u7b54\u6848\u662f ' + item.answer + '\uff0c\u8acb\u5c07\u5b83\u653e\u56de\u53e5\u5b50\u4e2d\u7406\u89e3\u5168\u53e5\u610f\u601d\u3002';
+  return '\u672c\u984c\u7684\u95dc\u9375\u7b54\u6848\u662f ' + item.answer + '\uff08' + zh + '\uff09\uff0c\u8acb\u5c07\u5b83\u653e\u56de\u53e5\u5b50\u4e2d\u7406\u89e3\u5168\u53e5\u610f\u601d\u3002';
+}
+
 function exerciseAnswerZh(answer, source) {
   const sublistMatch = String(source || '').match(/SL(\d+)/);
   const sublist = sublistMatch ? Number(sublistMatch[1]) : null;
@@ -1424,7 +1445,8 @@ function renderExerciseLiveWrong() {
     div.innerHTML = '<div class="exercise-live-meta">' + item.source + ' Q' + item.number + '</div>' +
       '<div class="exercise-live-prompt">' + plainExerciseSentence(item.prompt) + '</div>' +
       '<div class="exercise-live-answer">Answer: ' + item.answer + '</div>' +
-      (zh ? '<div class="exercise-live-zh">\u4e2d\u6587\uff1a' + zh + '</div>' : '');
+      (zh ? '<div class="exercise-live-zh">\u4e2d\u6587\uff1a' + zh + '</div>' : '') +
+      '<div class="exercise-live-translation">' + exercisePromptZh(item) + '</div>';
     list.appendChild(div);
   });
 }
@@ -1461,8 +1483,13 @@ function loadExerciseQuestion() {
   document.getElementById('exercise-progress-bar').style.width = (exerciseIndex / total * 100) + '%';
   document.getElementById('exercise-counter').textContent = 'QUESTION ' + (exerciseIndex + 1) + ' / ' + total;
   document.getElementById('exercise-remain').textContent = (total - exerciseIndex) + ' left';
-  document.getElementById('exercise-source').textContent = item.source + ' · QUESTION ' + String(item.number).padStart(2, '0');
+  const answerZh = exerciseAnswerZh(item.answer, item.source);
+  document.getElementById('exercise-source').textContent = item.source + ' \u00b7 QUESTION ' + String(item.number).padStart(2, '0');
+  document.getElementById('exercise-focus-word').textContent = item.answer;
+  document.getElementById('exercise-answer-zh').textContent = answerZh ? '\u7b54\u6848\u4e2d\u6587\uff1a' + answerZh : '';
   document.getElementById('exercise-sentence').innerHTML = blankExerciseSentence(item.prompt);
+  document.getElementById('exercise-translation-text').textContent = exercisePromptZh(item);
+  document.getElementById('exercise-translation-en').textContent = filledExerciseSentence(item);
   document.getElementById('exercise-input').value = '';
   document.getElementById('exercise-input').disabled = false;
   const fb = document.getElementById('exercise-feedback');
@@ -1567,4 +1594,5 @@ init();
 </script>
 </body>
 </html>
+
 
