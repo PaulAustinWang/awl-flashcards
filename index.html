@@ -217,6 +217,7 @@
 .exercise-live-meta { color: var(--muted); font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 1px; margin-bottom: 4px; }
 .exercise-live-prompt { color: var(--text); font-size: 12px; line-height: 1.35; margin-bottom: 4px; }
 .exercise-live-answer { color: var(--correct); font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; }
+.exercise-live-zh { color: var(--accent2); font-size: 12px; margin-top: 3px; }
 .exercise-footer { display: flex; gap: 10px; flex-wrap: wrap; }
 .exercise-footer button { flex: 1; min-width: 140px; }
 @media (max-width: 480px) { .exercise-actions, .exercise-options, .exercise-input-row { grid-template-columns: 1fr; } .exercise-input-row { display: grid; } }
@@ -1350,9 +1351,59 @@ function exerciseSetLabel(groups) {
 }
 
 function shuffleExercise(arr) { return [...arr].sort(() => Math.random() - 0.5); }
-function normExerciseAnswer(s) { return String(s || '').trim().toLowerCase().replace(/s+/g, ' '); }
+function normExerciseAnswer(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
 function blankExerciseSentence(s) { return s.replace(/_{5,}/g, '<span class="exercise-blank"></span>'); }
 function plainExerciseSentence(s) { return s.replace(/_{5,}/g, '_____'); }
+function exerciseWordKey(s) { return String(s || '').toLowerCase().replace(/[^a-z]/g, ''); }
+function exerciseWordVariants(word) {
+  const key = exerciseWordKey(word);
+  const variants = new Set([key]);
+  [
+    [/ies$/, 'y'], [/s$/, ''], [/es$/, ''], [/ed$/, ''], [/ing$/, ''],
+    [/ly$/, ''], [/ity$/, ''], [/ment$/, ''], [/tion$/, 'te'],
+    [/tions$/, 'te'], [/ation$/, 'ate'], [/ations$/, 'ate'],
+    [/ance$/, 'ant'], [/ence$/, 'ent'], [/ous$/, ''], [/al$/, '']
+  ].forEach(([re, repl]) => {
+    if (re.test(key)) variants.add(key.replace(re, repl));
+  });
+  return [...variants].filter(Boolean);
+}
+function exerciseEditDistance(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+  }
+  return dp[a.length][b.length];
+}
+function exerciseAnswerZh(answer, source) {
+  const sublistMatch = String(source || '').match(/SL(\d+)/);
+  const sublist = sublistMatch ? Number(sublistMatch[1]) : null;
+  const candidates = sublist && SUBLISTS[sublist] ? SUBLISTS[sublist] : Object.values(SUBLISTS).flat();
+  const variants = exerciseWordVariants(answer);
+  for (const item of candidates) {
+    const itemVariants = exerciseWordVariants(item.w);
+    if (variants.some(v => itemVariants.includes(v))) return item.zh;
+  }
+  let best = null;
+  candidates.forEach(item => {
+    const answerKey = exerciseWordKey(answer);
+    const wordKey = exerciseWordKey(item.w);
+    const dist = exerciseEditDistance(answerKey, wordKey);
+    const prefixBonus = answerKey.slice(0, 4) === wordKey.slice(0, 4) ? -2 : 0;
+    const score = dist + prefixBonus;
+    if (!best || score < best.score) best = { item, score, dist };
+  });
+  if (best && best.dist <= Math.max(4, Math.ceil(exerciseWordKey(answer).length * 0.45))) return best.item.zh;
+  return '';
+}
 function renderExerciseLiveWrong() {
   const title = document.getElementById('exercise-live-title');
   const list = document.getElementById('exercise-live-list');
@@ -1369,9 +1420,11 @@ function renderExerciseLiveWrong() {
   exerciseSessionWrong.slice().reverse().forEach(item => {
     const div = document.createElement('div');
     div.className = 'exercise-live-item';
+    const zh = exerciseAnswerZh(item.answer, item.source);
     div.innerHTML = '<div class="exercise-live-meta">' + item.source + ' Q' + item.number + '</div>' +
       '<div class="exercise-live-prompt">' + plainExerciseSentence(item.prompt) + '</div>' +
-      '<div class="exercise-live-answer">Answer: ' + item.answer + '</div>';
+      '<div class="exercise-live-answer">Answer: ' + item.answer + '</div>' +
+      (zh ? '<div class="exercise-live-zh">\u4e2d\u6587\uff1a' + zh + '</div>' : '');
     list.appendChild(div);
   });
 }
@@ -1417,7 +1470,7 @@ function loadExerciseQuestion() {
   document.getElementById('exercise-next-btn').textContent = exerciseIndex === total - 1 ? 'SHOW FINISH' : 'NEXT QUESTION';
   const options = document.getElementById('exercise-options');
   options.innerHTML = '';
-  item.options.forEach((opt, i) => {
+  shuffleExercise(item.options).forEach((opt, i) => {
     const btn = document.createElement('button');
     btn.className = 'exercise-option';
     btn.innerHTML = '<span class="key">' + (i === 9 ? '0' : i + 1) + '</span><span>' + opt + '</span>';
@@ -1450,14 +1503,16 @@ function selectExerciseAnswer(chosen, btn) {
     exerciseWrongIds.delete(item.id);
     exerciseSessionWrong = exerciseSessionWrong.filter(q => q.id !== item.id);
     fb.className = 'exercise-feedback ok show';
-    fb.textContent = 'Correct: ' + item.answer;
+    const zh = exerciseAnswerZh(item.answer, item.source);
+    fb.textContent = 'Correct: ' + item.answer + (zh ? ' / \u4e2d\u6587\uff1a' + zh : '');
   } else {
     exerciseWrongCount++;
     exerciseWrongIds.add(item.id);
     exerciseSessionWrong = exerciseSessionWrong.filter(q => q.id !== item.id);
     exerciseSessionWrong.push(item);
     fb.className = 'exercise-feedback bad show';
-    fb.textContent = 'Answer: ' + item.answer + (chosen ? ' · Your answer: ' + chosen : '');
+    const zh = exerciseAnswerZh(item.answer, item.source);
+    fb.textContent = 'Answer: ' + item.answer + (zh ? ' / \u4e2d\u6587\uff1a' + zh : '') + (chosen ? ' \u00b7 Your answer: ' + chosen : '');
   }
   localStorage.setItem('awlExerciseWrongIds', JSON.stringify([...exerciseWrongIds]));
   document.getElementById('exercise-correct').textContent = exerciseCorrectCount;
@@ -1512,3 +1567,4 @@ init();
 </script>
 </body>
 </html>
+
