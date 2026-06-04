@@ -400,11 +400,11 @@
     </div>
     <div class="exercise-question-card" id="exercise-card">
       <div class="exercise-source" id="exercise-source">SL1 EX1A &middot; QUESTION 01</div>
-      <div class="exercise-focus-word" id="exercise-focus-word">fill exercise</div>
-      <div class="exercise-answer-zh" id="exercise-answer-zh"></div>
+      <div class="exercise-focus-word" id="exercise-focus-word" style="display:none"></div>
+      <div class="exercise-answer-zh" id="exercise-answer-zh" style="display:none"></div>
       <div class="exercise-sentence" id="exercise-sentence"></div>
-      <div class="exercise-translation" id="exercise-translation">
-        <div class="exercise-translation-label">&#20013;&#25991;&#38988;&#24847;</div>
+      <div class="exercise-translation" id="exercise-translation" style="display:none">
+        <div class="exercise-translation-label">&#25972;&#21477;&#20013;&#25991;&#32763;&#35695;</div>
         <div class="exercise-translation-text" id="exercise-translation-text"></div>
         <div class="exercise-translation-en" id="exercise-translation-en"></div>
       </div>
@@ -1465,6 +1465,35 @@ function renderExercisePromptTranslation(item) {
   });
 }
 
+function resetExerciseAnswerPanel() {
+  const focusEl = document.getElementById('exercise-focus-word');
+  const zhEl = document.getElementById('exercise-answer-zh');
+  const boxEl = document.getElementById('exercise-translation');
+  const textEl = document.getElementById('exercise-translation-text');
+  const enEl = document.getElementById('exercise-translation-en');
+  focusEl.textContent = '';
+  focusEl.style.display = 'none';
+  zhEl.textContent = '';
+  zhEl.style.display = 'none';
+  boxEl.style.display = 'none';
+  textEl.textContent = '';
+  enEl.textContent = '';
+  delete textEl.dataset.translateId;
+}
+
+function revealExerciseAnswerPanel(item) {
+  const focusEl = document.getElementById('exercise-focus-word');
+  const zhEl = document.getElementById('exercise-answer-zh');
+  const boxEl = document.getElementById('exercise-translation');
+  const answerZh = exerciseAnswerZh(item.answer, item.source);
+  focusEl.textContent = item.answer;
+  focusEl.style.display = '';
+  zhEl.textContent = answerZh ? '\u7b54\u6848\u4e2d\u6587\uff1a' + answerZh : '';
+  zhEl.style.display = answerZh ? '' : 'none';
+  boxEl.style.display = '';
+  renderExercisePromptTranslation(item);
+}
+
 function hydrateExerciseLiveTranslation(item, container) {
   const textEl = container.querySelector('.exercise-live-translation');
   if (!textEl) return;
@@ -1557,12 +1586,9 @@ function loadExerciseQuestion() {
   document.getElementById('exercise-progress-bar').style.width = (exerciseIndex / total * 100) + '%';
   document.getElementById('exercise-counter').textContent = 'QUESTION ' + (exerciseIndex + 1) + ' / ' + total;
   document.getElementById('exercise-remain').textContent = (total - exerciseIndex) + ' left';
-  const answerZh = exerciseAnswerZh(item.answer, item.source);
   document.getElementById('exercise-source').textContent = item.source + ' \u00b7 QUESTION ' + String(item.number).padStart(2, '0');
-  document.getElementById('exercise-focus-word').textContent = item.answer;
-  document.getElementById('exercise-answer-zh').textContent = answerZh ? '\u7b54\u6848\u4e2d\u6587\uff1a' + answerZh : '';
   document.getElementById('exercise-sentence').innerHTML = blankExerciseSentence(item.prompt);
-  renderExercisePromptTranslation(item);
+  resetExerciseAnswerPanel();
   document.getElementById('exercise-input').value = '';
   document.getElementById('exercise-input').disabled = false;
   const fb = document.getElementById('exercise-feedback');
@@ -1597,6 +1623,7 @@ function selectExerciseAnswer(chosen, btn) {
     if (normExerciseAnswer(txt) === normExerciseAnswer(item.answer)) b.classList.add('correct');
   });
   if (btn && !ok) btn.classList.add('wrong');
+  revealExerciseAnswerPanel(item);
   const fb = document.getElementById('exercise-feedback');
   if (ok) {
     exerciseCorrectCount++;
